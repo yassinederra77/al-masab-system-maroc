@@ -12,7 +12,7 @@ def prof_panel():
     col1, col2 = st.columns(2)
     with col1:
         level = st.selectbox("السلك", ["الأولى إعدادي", "الثانية إعدادي", "الثالثة إعدادي", "جدع مشترك"])
-        session = st.selectbox("الحصة الحالية", ["الأولى", "الثانية", "الثالثة", "الرابعة"])
+        session = st.selectbox("اختر الحصة", ["الأولى", "الثانية", "الثالثة", "الرابعة"])
     
     with col2:
         class_num = st.text_input("رقم القسم")
@@ -22,7 +22,7 @@ def prof_panel():
 
     period = st.radio("الفترة", ["صباحية", "مسائية"], horizontal=True)
 
-    if st.button("🔍 إظهار لائحة القسم"):
+    if st.button("🔍 بحث"):
         cursor = conn.cursor()
         cursor.execute("SELECT id FROM classes WHERE level=? AND class_num=?", (level, class_num))
         result = cursor.fetchone()
@@ -93,7 +93,7 @@ def prof_panel():
                         st.rerun()
 
         st.divider()
-        if st.button("💾 حفظ غياب الحصة", type="primary", use_container_width=True):
+        if st.button("💾 حفظ المعلومات", type="primary", use_container_width=True):
             if st.session_state.temp_absents:
                 cursor = conn.cursor()
                 for s_id in st.session_state.temp_absents:
@@ -101,8 +101,9 @@ def prof_panel():
                                    (int(s_id), today, day_name, session, period))
                 conn.commit()
                 st.session_state.temp_absents = []
-                st.success(f"✅ تم تسجيل الغياب للحصة {session}")
+                st.success(f"✅ تم تسجيل الغياب بنجاح {session}")
                 st.rerun()
             else:
-                st.warning("⚠️ اختر التلاميذ الغائبين في حصتك أولاً.")
+                st.warning("⚠️ نود إعلامكم بأنه لم يتم تسجيل أي غياب في هذا القسم في الوقت الحالي")
+
     conn.close()

@@ -10,11 +10,11 @@ def surveillant_panel():
     # 1. اختيار القسم
     col1, col2 = st.columns(2)
     with col1:
-        level = st.selectbox("السلك", ["الأولى إعدادي", "الثانية إعدادي", "الثالثة إعدادي", "جدع مشترك"])
+        level = st.selectbox("يرجى اختيار السلك المناسب", ["الأولى إعدادي", "الثانية إعدادي", "الثالثة إعدادي", "جدع مشترك"])
     with col2:
         class_num = st.text_input("رقم القسم")
 
-    if st.button("📊 عرض لائحة الغياب"):
+    if st.button("🔎 بحث"):
         st.session_state.view_class = True
     
     if st.session_state.get("view_class", False):
@@ -52,18 +52,18 @@ def surveillant_panel():
                 with st.expander(f"👤 {std['name']} {std['lastname']} | الساعات غير المبررة: {total_hours}"):
                     
                     if total_hours > 0:
-                        st.markdown(f"<h4 style='color:red;'>⚠️ غيابات تنتظر السماح:</h4>", unsafe_allow_html=True)
+                        st.markdown(f"<h4 style='color:red;'>⏳ غيابات تنتظر السماح بالدخول</h4>", unsafe_allow_html=True)
                         
                         # تجميع الغيابات حسب التاريخ
                         dates = unallowed_abs['date'].unique()
                         for d in dates:
                             day_abs = unallowed_abs[unallowed_abs['date'] == d]
-                            st.markdown(f"*📅 يوم {d} (عدد الساعات: {len(day_abs)})*")
+                            st.markdown(f"*📅 يوم {d} (🕕 عدد الساعات: {len(day_abs)})*")
                             for _, row in day_abs.iterrows():
                                 st.write(f"🔹 الحصة {row['session']} - الفترة {row['period']}")
                         
                         # زر السماح بالدخول (يبرر كل الساعات دفعة واحدة)
-                        if st.button(f"✅ إعطاء ورقة السماح لـ {std['name']}", key=f"btn_{std['std_id']}"):
+                        if st.button(f"✅ السماح بي الدخول لـ {std['name']}", key=f"btn_{std['std_id']}"):
                             cursor = conn.cursor()
                             cursor.execute("UPDATE attendance SET allowed = 1 WHERE student_id = ? AND allowed = 0", (int(std['std_id']),))
                             conn.commit()
@@ -74,7 +74,7 @@ def surveillant_panel():
 
                     # الجزء الخاص بالأرشيف (ليحتاجه المدير عند حضور ولي الأمر)
                     st.divider()
-                    with st.expander("📚 أرشيف الغياب الكامل (للمدير)"):
+                    with st.expander("🗂️ أرشيف الغياب الكامل "):
                         if full_history.empty:
                             st.write("الأرشيف فارغ.")
                         else:

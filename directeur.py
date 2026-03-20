@@ -18,7 +18,7 @@ def find_column(columns, keywords):
     return None
 
 def directeur_panel():
-    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🤵 لوحة تحكم المدير</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #1E3A8A;'>🤵 لوحة المدير</h1>", unsafe_allow_html=True)
     
     menu = [
         "➕ إضافة قسم جديد (Excel)", 
@@ -35,12 +35,12 @@ def directeur_panel():
 
     # 1. إضافة قسم جديد (Excel)
     if choice == "➕ إضافة قسم جديد (Excel)":
-        st.subheader("📂 استيراد قسم من ملف Excel")
+        st.subheader("إضافة قسم جديد داخل نظام")
         level = st.selectbox("سلك القسم", ["الأولى إعدادي", "الثانية إعدادي", "الثالثة إعدادي", "جدع مشترك"])
-        class_num = st.text_input("رقم القسم (مثال: 1)")
+        class_num = st.text_input("رقم القسم الذي يجب إضافته")
         file = st.file_uploader("ارفع ملف Excel", type=["xlsx", "xls"])
 
-        if st.button("🚀 معالجة وحفظ القسم"):
+        if st.button("💾 معالجة وحفظ القسم"):
             if file and class_num:
                 df_excel = pd.read_excel(file, dtype=str).fillna("")
                 cols = df_excel.columns

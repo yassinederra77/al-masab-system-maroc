@@ -15,7 +15,7 @@ def generate_login(name, lastname):
     return f"{name.lower()}{lastname.lower()}@taalim.ma"
 
 def admin_panel():
-    st.title("🧑‍🔧 الطاقم التقني (النسخة المطورة)")
+    st.title("🧑‍🔧 Service technique")
 
     # جلب البيانات من SQL بدل CSV
     conn = get_connection()
