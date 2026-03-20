@@ -3,7 +3,7 @@ from database import get_connection, get_system_status
 
 def login():
     st.markdown("<h2 style='text-align: center;'>🏫 Al Masab Service</h2>", unsafe_allow_html=True)
-    st.markdown("<div style='position:fixed; bottom:20px; left:0; width:100%; text-align:center; font-size:16px; font-weight:bold; color:black;'>💻 VERSION DE SYSTÈMES 1.0.0</div>", unsafe_allow_html=True)
+    st.markdown("<div style='display:flex; justify-content:center; font-size:16px; font-weight:bold; color:black; margin-top:-10px;'>💻 VERSION DE SYSTÈMES 1.0.0</div>", unsafe_allow_html=True)
 
 
     login_input = st.text_input("Login")
