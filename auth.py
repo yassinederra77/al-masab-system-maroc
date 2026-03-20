@@ -2,7 +2,7 @@ import streamlit as st
 from database import get_connection, get_system_status
 
 def login():
-    st.markdown("<h2 style='text-align: center;'>🏫 Al Masab Service - Login</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🏫 Al Masab Service</h2>", unsafe_allow_html=True)
 
     login_input = st.text_input("Login")
     password = st.text_input("Password", type="password")
