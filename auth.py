@@ -11,7 +11,7 @@ def login():
         # 🔌 التحقق من حالة النظام
         system_status = get_system_status()
         if system_status == "off" and login_input != "yassinederra@service":
-            st.error("🚫 النظام متوقف من أجل الصيانة")
+            st.error("🔧 نود إعلامكم بأن النظام متوقف مؤقتًا لأغراض الصيانة للاستفسار أو لمزيد من المعلومات يرجى التواصل مع خدمة العملاء على الرقم 07.21.82.59.21")
             return
 
         # 📥 التحقق من قاعدة البيانات
@@ -24,7 +24,7 @@ def login():
         if user:
             role, name, status = user
             if status == "stopped":
-                st.error("❌ حسابك موقوف، اتصل بالإدارة")
+                st.error("تعذر الاتصال بالخادم يُرجى التواصل مع خدمة العملاء.")
                 return
 
             st.session_state["login"] = True
@@ -33,4 +33,4 @@ def login():
             st.success(f"مرحباً {name}!")
             st.rerun()
         else:
-            st.error("❌ معلومات الدخول غير صحيحة")
+            st.error("❌ معلومات تسجيل الدخول غير صحيحة، يُرجى التحقق منها")
