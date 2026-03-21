@@ -1,1 +1,3 @@
 libsql-client
+streamlit
+pandas
