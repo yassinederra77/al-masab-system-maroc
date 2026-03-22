@@ -3,8 +3,8 @@ import pandas as pd
 import streamlit as st
 
 
-# إعدادات السحاب
-TURSO_URL = "https://al-masab-db-yassinederra77.aws-eu-west-1.turso.io"
+# التغيير الجذري: تبديل https بـ libsql في الرابط
+TURSO_URL = "libsql://al-masab-db-yassinederra77.aws-eu-west-1.turso.io"
 TURSO_TOKEN = "EyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxMzIzNzYsImlkIjoiMDE5ZDEyODctODQwMS03ZTdhLWI4ODgtMTI2YmM3YjU1YTRiIiwicmlkIjoiOGVmYzQzOWMtZjAzMS00NWQwLWJhZTItMzRiOTRiNWMwNjZiIn0.mXHyH939WTc_dFjg82Z9Ur8zl5azWacapBWgjgv7A5w2lM7U6OAoH4IIMgWHNg861lvSDxIWOHfCbRidZ90aDQ"
 
 
@@ -13,19 +13,19 @@ class TursoAdapter:
         self.last_result = None
 
 
-    def cursor(self):
-        return self
+    def cursor(self): return self
 
 
     def execute(self, query, params=None):
-        # الحل الأقوى: إنشاء عميل جديد لكل عملية تنفيذ لضمان عدم حدوث تعارض في بايثون 3.14
         p = list(params) if params is not None else []
         try:
+            # الاتصال باستعمال الرابط الجديد libsql://
             with libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN) as client:
                 self.last_result = client.execute(query, p)
         except Exception as e:
-            # إظهار الخطأ الحقيقي للمساعدة في التشخيص
-            st.error(f"⚠️ فشل في السحاب: {query}")
+            # طباعة الخطأ الحقيقي باش نشوفوه في Streamlit
+            st.error(f"❌ Query Error: {query}")
+            st.exception(e)
             raise e
         return self
 
@@ -42,13 +42,11 @@ class TursoAdapter:
     def close(self): pass
 
 
-def get_connection():
-    return TursoAdapter()
+def get_connection(): return TursoAdapter()
 
 
 def init_db():
     conn = get_connection()
-    # أوامر الجداول من كودك الأصلي
     queries = [
         "CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, password TEXT, role TEXT, name TEXT, lastname TEXT, phone TEXT, subject TEXT, status TEXT DEFAULT 'active')",
         "CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT, class_num TEXT, UNIQUE(level, class_num))",
@@ -64,10 +62,8 @@ def init_db():
 def load_users():
     conn = get_connection()
     res = conn.execute("SELECT * FROM users")
-    # التأكد من أسماء الأعمدة للتوافق مع باقي النظام
     cols = res.last_result.columns if res.last_result else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
-    df = pd.DataFrame(res.fetchall(), columns=cols)
-    return df
+    return pd.DataFrame(res.fetchall(), columns=cols)
 
 
 def save_user(login, password, role, name, lastname, phone, subject):
@@ -83,8 +79,7 @@ def get_system_status():
         conn = get_connection()
         row = conn.execute("SELECT value FROM system_config WHERE key='status'").fetchone()
         return row[0] if row else "on"
-    except:
-        return "on"
+    except: return "on"
 
 
 def set_system_status(status):
@@ -92,5 +87,5 @@ def set_system_status(status):
     conn.execute("UPDATE system_config SET value=?", [status])
 
 
-# تشغيل التهيئة عند تحميل الملف
+# تشغيل التهيئة
 init_db()
