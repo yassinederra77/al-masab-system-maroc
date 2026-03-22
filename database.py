@@ -2,9 +2,11 @@ import libsql_client as libsql
 import pandas as pd
 import streamlit as st
 
-# إعدادات السحاب
+
+# إعدادات السحاب (تأكد من صحتها)
 TURSO_URL = "https://al-masab-db-yassinederra77.aws-eu-west-1.turso.io"
 TURSO_TOKEN = "EyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxMzIzNzYsImlkIjoiMDE5ZDEyODctODQwMS03ZTdhLWI4ODgtMTI2YmM3YjU1YTRiIiwicmlkIjoiOGVmYzQzOWMtZjAzMS00NWQwLWJhZTItMzRiOTRiNWMwNjZiIn0.mXHyH939WTc_dFjg82Z9Ur8zl5azWacapBWgjgv7A5w2lM7U6OAoH4IIMgWHNg861lvSDxIWOHfCbRidZ90aDQ"
+
 
 class TursoAdapter:
     def __init__(self):
@@ -12,39 +14,46 @@ class TursoAdapter:
         try:
             self.client = libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN)
         except Exception as e:
-            st.error(f"⚠️ خطأ في الاتصال: {e}")
+            st.error(f"⚠️ خطأ اتصال: {e}")
+
 
     def cursor(self):
         return self
 
+
     def execute(self, query, params=None):
         if not self.client: return self
-        # الحل الجذري: نضمن دائماً إرسال قائمة [] حتى لو كانت فارغة لمنع خطأ 400
+        # الحل الجذري: نضمن دائماً إرسال [] حتى لو كانت فارغة لمنع خطأ 400
         p = list(params) if params is not None else []
         try:
             self.last_result = self.client.execute(query, p)
         except Exception as e:
-            # طباعة الخطأ في سجلات السحاب لمعرفة السبب الحقيقي
-            print(f"Query Failed: {query} | Error: {e}")
+            # كنطبعو الخطأ في سجلات السحاب باش نعرفو السطر اللي فيه المشكل
+            st.error(f"❌ فشل الاستعلام: {query}")
             raise e
         return self
+
 
     def fetchone(self):
         return self.last_result.rows[0] if hasattr(self, 'last_result') and self.last_result.rows else None
 
+
     def fetchall(self):
         return self.last_result.rows if hasattr(self, 'last_result') else []
+
 
     def commit(self): pass
     def close(self):
         if self.client: self.client.close()
 
+
 def get_connection():
     return TursoAdapter()
 
+
 def init_db():
     conn = get_connection()
-    # الاستعلامات مأخوذة من كودك الأصلي
+    # تقسيم الجداول لضمان التنفيذ السليم
     queries = [
         "CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, password TEXT, role TEXT, name TEXT, lastname TEXT, phone TEXT, subject TEXT, status TEXT DEFAULT 'active')",
         "CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT, class_num TEXT, UNIQUE(level, class_num))",
@@ -54,17 +63,20 @@ def init_db():
         "INSERT OR IGNORE INTO system_config (key, value) VALUES ('status', 'on')"
     ]
     for q in queries:
-        # هنا كان كيوقع الخطأ (السطر 49)، دابا التعديل الفوق غيصلحو تلقائياً
+        # تأكدنا أن execute غتزيد [] تلقائياً
         conn.execute(q)
     conn.close()
+
 
 def load_users():
     conn = get_connection()
     res = conn.execute("SELECT * FROM users")
+    # استخراج أسماء الأعمدة لتفادي خطأ Pandas
     cols = res.last_result.columns if res.last_result else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
     df = pd.DataFrame(res.fetchall(), columns=cols)
     conn.close()
     return df
+
 
 def save_user(login, password, role, name, lastname, phone, subject):
     conn = get_connection()
@@ -73,6 +85,7 @@ def save_user(login, password, role, name, lastname, phone, subject):
         [login, password, role, name, lastname, phone, subject]
     )
     conn.close()
+
 
 def get_system_status():
     try:
@@ -83,10 +96,12 @@ def get_system_status():
     except:
         return "on"
 
+
 def set_system_status(status):
     conn = get_connection()
     conn.execute("UPDATE system_config SET value=?", [status])
     conn.close()
+
 
 # تنفيذ التهيئة عند التشغيل
 init_db()
