@@ -1,16 +1,19 @@
-import libsql_client as libsql
 import pandas as pd
 import streamlit as st
+import requests
+import json
 
 
-# التغيير الجذري: تبديل https بـ libsql في الرابط
-TURSO_URL = "libsql://al-masab-db-yassinederra77.aws-eu-west-1.turso.io"
-TURSO_TOKEN = "EyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxMzIzNzYsImlkIjoiMDE5ZDEyODctODQwMS03ZTdhLWI4ODgtMTI2YmM3YjU1YTRiIiwicmlkIjoiOGVmYzQzOWMtZjAzMS00NWQwLWJhZTItMzRiOTRiNWMwNjZiIn0.mXHyH939WTc_dFjg82Z9Ur8zl5azWacapBWgjgv7A5w2lM7U6OAoH4IIMgWHNg861lvSDxIWOHfCbRidZ90aDQ"
+# 1. الإعدادات الصحيحة (تم تصحيح الرابط للعمل عبر API)
+URL = "https://al-masab-db-yassinederra77.turso.io/v1/execute"
+TOKEN = "EyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxMzIzNzYsImlkIjoiMDE5ZDEyODctODQwMS03ZTdhLWI4ODgtMTI2YmM3YjU1YTRiIiwicmlkIjoiOGVmYzQzOWMtZjAzMS00NWQwLWJhZTItMzRiOTRiNWMwNjZiIn0.mXHyH939WTc_dFjg82Z9Ur8zl5azWacapBWgjgv7A5w2lM7U6OAoH4IIMgWHNg861lvSDxIWOHfCbRidZ90aDQ"
 
 
 class TursoAdapter:
     def __init__(self):
         self.last_result = None
+        self.columns = []
+        self.rows = []
 
 
     def cursor(self): return self
@@ -18,28 +21,34 @@ class TursoAdapter:
 
     def execute(self, query, params=None):
         p = list(params) if params is not None else []
+        headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}
+        payload = {"stmt": {"sql": query, "args": [{"type": "text", "value": str(v)} for v in p]}}
+        
         try:
-            # الاتصال باستعمال الرابط الجديد libsql://
-            with libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN) as client:
-                self.last_result = client.execute(query, p)
+            # الاتصال المباشر بـ API السيرفر (كيهرب من مشاكل بايثون 3.14)
+            resp = requests.post(URL, headers=headers, json=payload, timeout=10)
+            if resp.status_code != 200:
+                st.error(f"❌ خطأ من السيرفر: {resp.status_code}")
+                return self
+            
+            data = resp.json()
+            # استخراج النتائج
+            if "result" in data:
+                self.columns = data["result"].get("cols", [])
+                self.rows = []
+                for row_data in data["result"].get("rows", []):
+                    self.rows.append([item.get("value") for item in row_data])
         except Exception as e:
-            # طباعة الخطأ الحقيقي باش نشوفوه في Streamlit
-            st.error(f"❌ Query Error: {query}")
-            st.exception(e)
-            raise e
+            st.error(f"⚠️ فشل الاتصال: {e}")
         return self
 
 
-    def fetchone(self):
-        return self.last_result.rows[0] if self.last_result and self.last_result.rows else None
+    def fetchone(self): return self.rows[0] if self.rows else None
+    def fetchall(self): return self.rows
 
 
-    def fetchall(self):
-        return self.last_result.rows if self.last_result else []
-
-
-    def commit(self): pass
-    def close(self): pass
+    @property
+    def last_result_cols(self): return self.columns
 
 
 def get_connection(): return TursoAdapter()
@@ -55,20 +64,18 @@ def init_db():
         "CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)",
         "INSERT OR IGNORE INTO system_config (key, value) VALUES ('status', 'on')"
     ]
-    for q in queries:
-        conn.execute(q)
+    for q in queries: conn.execute(q)
 
 
 def load_users():
     conn = get_connection()
     res = conn.execute("SELECT * FROM users")
-    cols = res.last_result.columns if res.last_result else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
-    return pd.DataFrame(res.fetchall(), columns=cols)
+    cols = res.columns if res.columns else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
+    return pd.DataFrame(res.rows, columns=cols)
 
 
 def save_user(login, password, role, name, lastname, phone, subject):
-    conn = get_connection()
-    conn.execute(
+    get_connection().execute(
         "INSERT OR REPLACE INTO users (login, password, role, name, lastname, phone, subject, status) VALUES (?,?,?,?,?,?,?, 'active')",
         [login, password, role, name, lastname, phone, subject]
     )
@@ -76,16 +83,14 @@ def save_user(login, password, role, name, lastname, phone, subject):
 
 def get_system_status():
     try:
-        conn = get_connection()
-        row = conn.execute("SELECT value FROM system_config WHERE key='status'").fetchone()
+        row = get_connection().execute("SELECT value FROM system_config WHERE key='status'").fetchone()
         return row[0] if row else "on"
     except: return "on"
 
 
 def set_system_status(status):
-    conn = get_connection()
-    conn.execute("UPDATE system_config SET value=?", [status])
+    get_connection().execute("UPDATE system_config SET value=?", [status])
 
 
-# تشغيل التهيئة
+# تشغيل
 init_db()
