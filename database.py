@@ -3,18 +3,14 @@ import pandas as pd
 import streamlit as st
 
 
-# إعدادات السحاب (تأكد من صحتها)
+# إعدادات السحاب
 TURSO_URL = "https://al-masab-db-yassinederra77.aws-eu-west-1.turso.io"
 TURSO_TOKEN = "EyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzQxMzIzNzYsImlkIjoiMDE5ZDEyODctODQwMS03ZTdhLWI4ODgtMTI2YmM3YjU1YTRiIiwicmlkIjoiOGVmYzQzOWMtZjAzMS00NWQwLWJhZTItMzRiOTRiNWMwNjZiIn0.mXHyH939WTc_dFjg82Z9Ur8zl5azWacapBWgjgv7A5w2lM7U6OAoH4IIMgWHNg861lvSDxIWOHfCbRidZ90aDQ"
 
 
 class TursoAdapter:
     def __init__(self):
-        self.client = None
-        try:
-            self.client = libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN)
-        except Exception as e:
-            st.error(f"⚠️ خطأ اتصال: {e}")
+        self.last_result = None
 
 
     def cursor(self):
@@ -22,29 +18,28 @@ class TursoAdapter:
 
 
     def execute(self, query, params=None):
-        if not self.client: return self
-        # الحل الجذري: نضمن دائماً إرسال [] حتى لو كانت فارغة لمنع خطأ 400
+        # الحل الأقوى: إنشاء عميل جديد لكل عملية تنفيذ لضمان عدم حدوث تعارض في بايثون 3.14
         p = list(params) if params is not None else []
         try:
-            self.last_result = self.client.execute(query, p)
+            with libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN) as client:
+                self.last_result = client.execute(query, p)
         except Exception as e:
-            # كنطبعو الخطأ في سجلات السحاب باش نعرفو السطر اللي فيه المشكل
-            st.error(f"❌ فشل الاستعلام: {query}")
+            # إظهار الخطأ الحقيقي للمساعدة في التشخيص
+            st.error(f"⚠️ فشل في السحاب: {query}")
             raise e
         return self
 
 
     def fetchone(self):
-        return self.last_result.rows[0] if hasattr(self, 'last_result') and self.last_result.rows else None
+        return self.last_result.rows[0] if self.last_result and self.last_result.rows else None
 
 
     def fetchall(self):
-        return self.last_result.rows if hasattr(self, 'last_result') else []
+        return self.last_result.rows if self.last_result else []
 
 
     def commit(self): pass
-    def close(self):
-        if self.client: self.client.close()
+    def close(self): pass
 
 
 def get_connection():
@@ -53,7 +48,7 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    # تقسيم الجداول لضمان التنفيذ السليم
+    # أوامر الجداول من كودك الأصلي
     queries = [
         "CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, password TEXT, role TEXT, name TEXT, lastname TEXT, phone TEXT, subject TEXT, status TEXT DEFAULT 'active')",
         "CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT, class_num TEXT, UNIQUE(level, class_num))",
@@ -63,18 +58,15 @@ def init_db():
         "INSERT OR IGNORE INTO system_config (key, value) VALUES ('status', 'on')"
     ]
     for q in queries:
-        # تأكدنا أن execute غتزيد [] تلقائياً
         conn.execute(q)
-    conn.close()
 
 
 def load_users():
     conn = get_connection()
     res = conn.execute("SELECT * FROM users")
-    # استخراج أسماء الأعمدة لتفادي خطأ Pandas
+    # التأكد من أسماء الأعمدة للتوافق مع باقي النظام
     cols = res.last_result.columns if res.last_result else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
     df = pd.DataFrame(res.fetchall(), columns=cols)
-    conn.close()
     return df
 
 
@@ -84,14 +76,12 @@ def save_user(login, password, role, name, lastname, phone, subject):
         "INSERT OR REPLACE INTO users (login, password, role, name, lastname, phone, subject, status) VALUES (?,?,?,?,?,?,?, 'active')",
         [login, password, role, name, lastname, phone, subject]
     )
-    conn.close()
 
 
 def get_system_status():
     try:
         conn = get_connection()
         row = conn.execute("SELECT value FROM system_config WHERE key='status'").fetchone()
-        conn.close()
         return row[0] if row else "on"
     except:
         return "on"
@@ -100,8 +90,7 @@ def get_system_status():
 def set_system_status(status):
     conn = get_connection()
     conn.execute("UPDATE system_config SET value=?", [status])
-    conn.close()
 
 
-# تنفيذ التهيئة عند التشغيل
+# تشغيل التهيئة عند تحميل الملف
 init_db()
