@@ -12,15 +12,21 @@ class TursoAdapter:
         try:
             self.client = libsql.create_client_sync(url=TURSO_URL, auth_token=TURSO_TOKEN)
         except Exception as e:
-            st.error(f"خطأ اتصال: {e}")
+            st.error(f"⚠️ خطأ في الاتصال: {e}")
 
-    def cursor(self): return self
+    def cursor(self):
+        return self
 
     def execute(self, query, params=None):
         if not self.client: return self
-        # هذا السطر هو الحل الجذري: يفرض وجود قائمة [] لمنع خطأ 400
+        # الحل الجذري: نضمن دائماً إرسال قائمة [] حتى لو كانت فارغة لمنع خطأ 400
         p = list(params) if params is not None else []
-        self.last_result = self.client.execute(query, p)
+        try:
+            self.last_result = self.client.execute(query, p)
+        except Exception as e:
+            # طباعة الخطأ في سجلات السحاب لمعرفة السبب الحقيقي
+            print(f"Query Failed: {query} | Error: {e}")
+            raise e
         return self
 
     def fetchone(self):
@@ -33,10 +39,12 @@ class TursoAdapter:
     def close(self):
         if self.client: self.client.close()
 
-def get_connection(): return TursoAdapter()
+def get_connection():
+    return TursoAdapter()
 
 def init_db():
     conn = get_connection()
+    # الاستعلامات مأخوذة من كودك الأصلي
     queries = [
         "CREATE TABLE IF NOT EXISTS users (login TEXT PRIMARY KEY, password TEXT, role TEXT, name TEXT, lastname TEXT, phone TEXT, subject TEXT, status TEXT DEFAULT 'active')",
         "CREATE TABLE IF NOT EXISTS classes (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT, class_num TEXT, UNIQUE(level, class_num))",
@@ -46,12 +54,12 @@ def init_db():
         "INSERT OR IGNORE INTO system_config (key, value) VALUES ('status', 'on')"
     ]
     for q in queries:
+        # هنا كان كيوقع الخطأ (السطر 49)، دابا التعديل الفوق غيصلحو تلقائياً
         conn.execute(q)
     conn.close()
 
 def load_users():
     conn = get_connection()
-    # هنا سيتم استخدام الـ [] تلقائياً بفضل التعديل في دالة execute أعلاه
     res = conn.execute("SELECT * FROM users")
     cols = res.last_result.columns if res.last_result else ["login", "password", "role", "name", "lastname", "phone", "subject", "status"]
     df = pd.DataFrame(res.fetchall(), columns=cols)
@@ -72,11 +80,13 @@ def get_system_status():
         row = conn.execute("SELECT value FROM system_config WHERE key='status'").fetchone()
         conn.close()
         return row[0] if row else "on"
-    except: return "on"
+    except:
+        return "on"
 
 def set_system_status(status):
     conn = get_connection()
     conn.execute("UPDATE system_config SET value=?", [status])
     conn.close()
 
+# تنفيذ التهيئة عند التشغيل
 init_db()
